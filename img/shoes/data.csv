@@ -1,0 +1,5 @@
+id,title,img
+black-sneakers,カジュアルな靴。黒色。名前はスニーカー。,./img/shoes/input/black-sneakers.png
+red-sneakers,カジュアルな靴。赤色。名前はスニーカー。,./img/shoes/input/red-sneakers.png
+leather,主に男性が使うフォーマルな靴。名前は革靴。,./img/shoes/input/leather.png
+heel,主に女性が使うフォーマルな靴。名前はヒール。,./img/shoes/input/heel.png

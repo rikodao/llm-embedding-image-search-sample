@@ -1,0 +1,7 @@
+.ipynb_checkpoints/
+.venv/
+.env.*
+.gitsecret/keys/random_seed
+!*.secret
+.local/
+.npm
