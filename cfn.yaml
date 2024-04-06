@@ -1,0 +1,145 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Vector engine for OpenSearch Service Serverless
+
+Resources:
+  BedrockFullAccessPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: 'bedrock:*'
+            Resource: '*'
+      ManagedPolicyName: BedrockFullAccessPolicy
+
+  OpenSearchFullAccessPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: 'opensearch:*'
+            Resource: '*'
+      ManagedPolicyName: OpenSearchFullAccessPolicy
+  IAMUSer:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName:  aossadmin
+      ManagedPolicyArns:
+        - !Ref BedrockFullAccessPolicy
+        - !Ref OpenSearchFullAccessPolicy
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  IAMUSerAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref IAMUSer
+  IAMUSerAccessKeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${IAMUSer}-credentials
+      SecretString: !Sub "{\"accessKeyId\":\"${IAMUSerAccessKey}\",\"secretAccessKey\":\"${IAMUSerAccessKey.SecretAccessKey}\"}"
+
+  AossCollection:
+    Type: 'AWS::OpenSearchServerless::Collection'
+    Properties:
+      Name: !Sub 'test-collection'
+      Type: VECTORSEARCH
+      StandbyReplicas: DISABLED
+    DependsOn: AossEncryptionPolicy
+  AossEncryptionPolicy:
+    Type: 'AWS::OpenSearchServerless::SecurityPolicy'
+    Properties:
+      Name: !Sub 'test-encryption-policy'
+      Type: encryption
+      Policy: !Sub >-
+        {
+            "Rules":[
+                {
+                    "Resource":[
+                        "collection/test-collection"
+                   ],
+                    "ResourceType": "collection"
+                }
+           ],
+            "AWSOwnedKey": true
+        }
+  AossNetworkPolicy:
+    Type: 'AWS::OpenSearchServerless::SecurityPolicy'
+    Properties:
+      Name: !Sub 'test-network-policy'
+      Type: network
+      Policy: !Sub >-
+       [
+            {
+                "Rules":[
+                    {
+                        "Resource":[
+                            "collection/test-collection"
+                       ],
+                        "ResourceType": "dashboard"
+                    },
+                    {
+                        "Resource":[
+                            "collection/test-collection"
+                       ],
+                        "ResourceType": "collection"
+                    }
+               ],
+                "AllowFromPublic": true
+            }
+       ]
+  AossDataAccessPolicy:
+    Type: 'AWS::OpenSearchServerless::AccessPolicy'
+    Properties:
+      Name: !Sub 'test-data-access-policy'
+      Type: data
+      Policy: !Sub >-
+       [
+            {
+                "Rules":[
+                    {
+                        "Resource":[
+                            "collection/test-collection"
+                       ],
+                        "Permission":[
+                            "aoss:CreateCollectionItems",
+                            "aoss:UpdateCollectionItems",
+                            "aoss:DescribeCollectionItems",
+                            "aoss:DeleteCollectionItems"
+                       ],
+                        "ResourceType": "collection"
+                    },
+                    {
+                        "Resource":[
+                            "index/test-collection/*"
+                       ],
+                        "Permission":[
+                            "aoss:CreateIndex",
+                            "aoss:UpdateIndex",
+                            "aoss:DescribeIndex",
+                            "aoss:ReadDocument",
+                            "aoss:WriteDocument"
+                       ],
+                        "ResourceType": "index"
+                    }
+               ],
+                "Principal":[
+                    "arn:aws:iam::${AWS::AccountId}:user/aossadmin"
+               ],
+                "Description": ""
+            }
+       ]
+
+Outputs:
+  IAMUser:
+    Value: !Ref IAMUSer
+  DashboardURL:
+    Value: !GetAtt AossCollection.CollectionEndpoint
+  CollectionARN:
+    Value: !GetAtt AossCollection.Arn
+  SecretManagerARN:
+    Value: !Ref IAMUSerAccessKeySecret
+
